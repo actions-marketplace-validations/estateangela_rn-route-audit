@@ -403,6 +403,33 @@ def load_i18n(cfg: Config) -> dict[str, str]:
     return out
 
 
+def extract_keys(text: str, i18n: dict[str, str]) -> list[str]:
+    """Find translation keys used in a component, in either common style.
+
+        t('settings.about')          // function call
+        loc.settings.about           // property access on an i18n object
+
+    The second style has no marker that says "this is a translation" -- it
+    looks like any other property chain. Rather than guess which identifier
+    is the i18n object (projects call it loc, i18n, strings, messages...),
+    a dotted path counts only if it actually resolves to a known key. That
+    makes false positives impossible and needs no configuration.
+    """
+    keys: list[str] = []
+
+    def add(k: str) -> None:
+        if k in i18n and k not in keys:
+            keys.append(k)
+
+    for k in re.findall(r"""\bt\(\s*['"]([A-Za-z0-9_.\-]+)['"]""", text):
+        add(k)
+    for head, rest in re.findall(r"\b(\w+)((?:\.\w+){1,3})\b", text):
+        path = rest.lstrip(".")
+        add(path)                      # loc.settings.about  -> settings.about
+        add(f"{head}.{path}")          # or the whole chain is the key
+    return keys
+
+
 def enrich(cfg: Config, routes: list[Route], max_keys: int = 8,
            max_texts: int = 6) -> list[Route]:
     """Attach the screen title and sample on-screen text to each route.
@@ -411,8 +438,10 @@ def enrich(cfg: Config, routes: list[Route], max_keys: int = 8,
     possible, and it is also the only part that needs the i18n files.
     """
     i18n = load_i18n(cfg)
-    key_re = re.compile(r"""\bt\(\s*['"]([A-Za-z0-9_.\-]+)['"]""")
-    title_re = re.compile(r"""title=\{?\s*t\(\s*['"]([A-Za-z0-9_.\-]+)['"]""")
+    if not i18n:
+        return routes
+    title_re = re.compile(
+        r"""title=\{?\s*(?:t\(\s*['"]([A-Za-z0-9_.\-]+)['"]|(\w+(?:\.\w+){1,3}))""")
 
     for r in routes:
         if not r.file:
@@ -421,15 +450,22 @@ def enrich(cfg: Config, routes: list[Route], max_keys: int = 8,
         if not p.is_file():
             continue
         text = _read(p)
-        t = title_re.search(text)
-        if t and t.group(1) in i18n:
-            r.screen_title = i18n[t.group(1)]
-        keys: list[str] = []
-        for k in key_re.findall(text):
-            if k not in keys:
-                keys.append(k)
+
+        m = title_re.search(text)
+        if m:
+            for cand in (m.group(1), m.group(2)):
+                if not cand:
+                    continue
+                for k in (cand, cand.split(".", 1)[-1]):
+                    if k in i18n:
+                        r.screen_title = i18n[k]
+                        break
+                if r.screen_title:
+                    break
+
+        keys = extract_keys(text, i18n)
         r.text_keys = keys[:max_keys]
-        r.sample_texts = [i18n[k] for k in keys[:max_texts] if k in i18n]
+        r.sample_texts = [i18n[k] for k in keys[:max_texts]]
     return routes
 
 

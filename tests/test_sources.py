@@ -120,5 +120,39 @@ class UnknownConstant(unittest.TestCase):
         self.assertIn("route name unknown", routes["HomePath"].detail)
 
 
+class I18nStyles(unittest.TestCase):
+    """Projects reference translations in more than one way."""
+
+    def setUp(self):
+        self.i18n = {"settings.about": "About this app",
+                     "wallets.list": "My wallets",
+                     "common.ok": "OK"}
+
+    def test_function_call_style(self):
+        from rn_route_audit.parser import extract_keys
+        self.assertEqual(extract_keys("t('settings.about')", self.i18n),
+                         ["settings.about"])
+
+    def test_property_access_style(self):
+        """BlueWallet and others write `loc.settings.about`, which carries no
+        marker saying it is a translation."""
+        from rn_route_audit.parser import extract_keys
+        self.assertEqual(extract_keys("<Text>{loc.settings.about}</Text>",
+                                      self.i18n), ["settings.about"])
+
+    def test_unknown_dotted_paths_are_ignored(self):
+        """A dotted path counts only when it resolves to a real key, so any
+        other property chain in the file cannot become a false positive."""
+        from rn_route_audit.parser import extract_keys
+        src = "props.navigation.navigate(route.params.id); styles.container.flex"
+        self.assertEqual(extract_keys(src, self.i18n), [])
+
+    def test_both_styles_in_one_file_are_deduplicated(self):
+        from rn_route_audit.parser import extract_keys
+        src = "t('common.ok'); loc.common.ok; loc.wallets.list"
+        self.assertEqual(extract_keys(src, self.i18n),
+                         ["common.ok", "wallets.list"])
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -291,8 +291,11 @@ Optional extras, each of which adds information when present:
   `name={HomePath}` resolves to its string value. Line comments above a block
   become group labels. Without it, constants are reported under their
   identifier and flagged in `detail`.
-* **i18n JSON** (nested or flat) plus `t('some.key')` calls, and
-  `title={t('some.key')}` for the screen title. Required for reverse lookup.
+* **i18n JSON** (nested or flat). Translation keys are picked up from both
+  `t('some.key')` calls and property access such as `loc.some.key` — a dotted
+  path counts only when it resolves to a real key, so the i18n object can be
+  called anything and there is nothing to configure. Required for reverse
+  lookup.
 * **`SomeRouterMap.set(Const, Component)`** registrations mounted as
   `component={SomeRouterMap.get(Const)}`.
 
@@ -337,7 +340,7 @@ of.](docs/how-it-was-built.md)
 ## Development
 
 ```bash
-python3 -m unittest discover -s tests -t . -v     # 56 tests, no dependencies
+python3 -m unittest discover -s tests -t . -v     # 60 tests, no dependencies
 ```
 
 CI runs the tests on Python 3.9 / 3.11 / 3.13 and then runs the action itself
