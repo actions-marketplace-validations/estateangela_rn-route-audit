@@ -1,7 +1,5 @@
 name: React Navigation Route Audit
-description: >-
-  Map every React Navigation route name to the screen that renders it, and
-  reverse-look-up a route from text seen on screen. No simulator, no bundler.
+description: Map React Navigation routes to screens, and find a route from text seen on screen. One shared name per screen.
 author: Angela Shih
 branding:
   icon: map
