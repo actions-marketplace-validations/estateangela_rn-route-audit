@@ -1,0 +1,111 @@
+name: React Navigation Route Audit
+description: >-
+  Map every React Navigation route name to the screen that renders it, and
+  reverse-look-up a route from text seen on screen. No simulator, no bundler.
+author: Angela Shih
+branding:
+  icon: map
+  color: blue
+
+inputs:
+  app:
+    description: Path to the app repository (checkout it first).
+    required: false
+    default: "."
+  src-dir:
+    description: Source root, relative to `app`.
+    required: false
+    default: src
+  router-file:
+    description: >-
+      File declaring route names as `export const Foo = 'Bar'`,
+      relative to `src-dir`.
+    required: false
+    default: router/path.tsx
+  i18n:
+    description: >-
+      Translation JSON files relative to `app`, newline or comma separated.
+      Needed for screen titles and for reverse lookup.
+    required: false
+    default: ""
+  alias:
+    description: Import alias that points at `src-dir` (e.g. `~/` or `@/`).
+    required: false
+    default: "~/"
+  out-dir:
+    description: Where to write routes.json and routes.csv.
+    required: false
+    default: rn-route-audit-out
+  fail-on-unmounted:
+    description: Fail the job when a route constant is never mounted.
+    required: false
+    default: "false"
+  fail-on-unresolved:
+    description: Fail the job when a component cannot be traced to a file.
+    required: false
+    default: "false"
+
+outputs:
+  json:
+    description: Path to routes.json.
+    value: ${{ steps.run.outputs.json }}
+  csv:
+    description: Path to routes.csv.
+    value: ${{ steps.run.outputs.csv }}
+  total:
+    description: Number of route constants found.
+    value: ${{ steps.run.outputs.total }}
+  mounted:
+    description: Routes mounted unconditionally with a resolvable component.
+    value: ${{ steps.run.outputs.mounted }}
+  conditional:
+    description: Routes mounted inside a condition (feature flag, permission).
+    value: ${{ steps.run.outputs.conditional }}
+  unresolved:
+    description: Routes whose component expression could not be traced.
+    value: ${{ steps.run.outputs.unresolved }}
+  unmounted:
+    description: Route constants that no screen mounts.
+    value: ${{ steps.run.outputs.unmounted }}
+
+runs:
+  # Composite rather than Docker: the tool is standard-library Python, so
+  # there is nothing to build and nothing to install.
+  using: composite
+  steps:
+    - id: run
+      shell: bash
+      env:
+        APP: ${{ inputs.app }}
+        SRC_DIR: ${{ inputs.src-dir }}
+        ROUTER_FILE: ${{ inputs.router-file }}
+        I18N: ${{ inputs.i18n }}
+        ALIAS: ${{ inputs.alias }}
+        OUT_DIR: ${{ inputs.out-dir }}
+        FAIL_UNMOUNTED: ${{ inputs.fail-on-unmounted }}
+        FAIL_UNRESOLVED: ${{ inputs.fail-on-unresolved }}
+      run: |
+        set -euo pipefail
+
+        args=(audit --app "$APP" --src-dir "$SRC_DIR"
+              --router-file "$ROUTER_FILE" --alias "$ALIAS" --out "$OUT_DIR"
+              --summary-file "$RUNNER_TEMP/rn-route-audit-summary.txt")
+
+        # `i18n` accepts newline or comma separated paths so the action reads
+        # well from a YAML block scalar.
+        while IFS= read -r f; do
+          [ -n "$f" ] && args+=(--i18n "$f")
+        done <<< "$(printf '%s' "$I18N" | tr ',' '\n')"
+
+        [ "$FAIL_UNMOUNTED" = "true" ] && args+=(--fail-on-unmounted)
+        [ "$FAIL_UNRESOLVED" = "true" ] && args+=(--fail-on-unresolved)
+
+        # Stay in the workspace and import the package via PYTHONPATH.
+        # `cd $GITHUB_ACTION_PATH` would be wrong twice: a relative `app`
+        # would resolve against the action's directory instead of the
+        # caller's checkout, and `out-dir` would be written there too,
+        # out of reach of upload-artifact. Only shows up when the action is
+        # used by reference (not `uses: ./`), so it is easy to miss.
+        PYTHONPATH="$GITHUB_ACTION_PATH" python3 -m rn_route_audit "${args[@]}"
+
+        cat "$RUNNER_TEMP/rn-route-audit-summary.txt" >> "$GITHUB_OUTPUT"

@@ -1,0 +1,22 @@
+{
+  "common": {
+    "confirm": "Confirm"
+  },
+  "home": {
+    "title": "Home",
+    "greeting": "Welcome back"
+  },
+  "detail": {
+    "title": "Order detail"
+  },
+  "login": {
+    "title": "Sign in"
+  },
+  "wallet": {
+    "title": "Wallet"
+  },
+  "notice": {
+    "title": "Notice",
+    "body": "First line second line after a line separator"
+  }
+}

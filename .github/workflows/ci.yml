@@ -1,0 +1,41 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # Standard library only, so the matrix is about syntax support.
+        python: ["3.9", "3.11", "3.13"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+      - name: Run tests
+        run: python -m unittest discover -s tests -t . -v
+
+  self-test:
+    # Proves the action itself works, using the fixture app as the target.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./
+        id: audit
+        with:
+          app: tests/fixtures/sample-app
+          i18n: locale/en.json
+      - name: Check outputs
+        run: |
+          echo "total=${{ steps.audit.outputs.total }}"
+          echo "mounted=${{ steps.audit.outputs.mounted }}"
+          test "${{ steps.audit.outputs.total }}" = "8"
+          test "${{ steps.audit.outputs.mounted }}" = "4"
+          test "${{ steps.audit.outputs.conditional }}" = "1"
+          test "${{ steps.audit.outputs.unmounted }}" = "2"
