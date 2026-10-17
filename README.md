@@ -10,7 +10,7 @@ route name.
 Static analysis only: no simulator, no bundler, no running app, nothing to
 install.
 
-<img src="docs/demo.svg" alt="Reverse lookup finds the route behind a sentence; audit runs against a real open-source app" width="780">
+<img src="docs/demo.svg" alt="Reverse lookup finds the route behind a sentence; audit runs against a real open-source app" width="640">
 
 ## The problem it solves
 
