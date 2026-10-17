@@ -221,6 +221,41 @@ things up in is worse than none.
 > static site on GitHub Pages is public to everyone — keep it in artifacts, a
 > private wiki, or behind access control.
 
+## Use from an AI coding agent (MCP)
+
+The question an agent keeps getting wrong on an unfamiliar codebase is
+*"which file renders the screen the user is describing"*. It guesses from
+file names. This hands it the answer.
+
+```json
+{
+  "mcpServers": {
+    "rn-route-audit": {
+      "command": "python3",
+      "args": ["-m", "rn_route_audit", "mcp",
+               "--app", "/absolute/path/to/your-app",
+               "--i18n", "locale/en.json"],
+      "cwd": "/absolute/path/to/rn-route-audit"
+    }
+  }
+}
+```
+
+Three tools:
+
+| Tool | Answers |
+|---|---|
+| `find_screen_by_text` | "The user says the screen reads *Welcome back*" → route plus component file |
+| `get_route` | "What is `Main/Checkout`?" → file, reachability, the flag guarding it |
+| `list_routes` | "Which screens sit behind a feature flag?" → filter by status or group |
+
+Routes are read once at startup, so point it at the repository you are
+working in and restart after large navigation changes.
+
+> Everything that is not a protocol message goes to stderr. stdout is the
+> transport; a single stray `print` corrupts the stream and the client
+> disconnects with no useful error.
+
 ## Use as a CLI
 
 ```bash
@@ -340,7 +375,7 @@ of.](docs/how-it-was-built.md)
 ## Development
 
 ```bash
-python3 -m unittest discover -s tests -t . -v     # 60 tests, no dependencies
+python3 -m unittest discover -s tests -t . -v     # 75 tests, no dependencies
 ```
 
 CI runs the tests on Python 3.9 / 3.11 / 3.13 and then runs the action itself

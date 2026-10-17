@@ -21,6 +21,34 @@ jobs:
       - name: Run tests
         run: python -m unittest discover -s tests -t . -v
 
+  mcp:
+    # A handshake over the real transport: a reply split across two lines or
+    # an answered notification both look like "the server did not start".
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Handshake over stdio
+        run: |
+          set -euo pipefail
+          printf '%s\n' \
+            '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18"}}' \
+            '{"jsonrpc":"2.0","method":"notifications/initialized"}' \
+            '{"jsonrpc":"2.0","id":2,"method":"tools/list"}' \
+            '{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"get_route","arguments":{"route":"Main/Notice"}}}' \
+          | python3 -m rn_route_audit mcp --app tests/fixtures/sample-app \
+              --i18n locale/en.json --router-file router/path.tsx > out.jsonl
+
+          test "$(wc -l < out.jsonl)" = "3"        # 4 messages, one is a notification
+          python3 - <<'PY'
+          import json
+          lines = [json.loads(l) for l in open("out.jsonl")]
+          assert [m["id"] for m in lines] == [1, 2, 3], lines
+          assert lines[1]["result"]["tools"], "no tools advertised"
+          assert "conditional" in lines[2]["result"]["content"][0]["text"]
+          assert open("out.jsonl").read().isascii(), "non-ASCII on the wire"
+          print("handshake ok")
+          PY
+
   self-test:
     # Proves the action itself works, using the fixture app as the target.
     runs-on: ubuntu-latest

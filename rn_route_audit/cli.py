@@ -174,6 +174,12 @@ def cmd_diff(args) -> int:
     return 1 if (args.exit_code and d.changed) else 0
 
 
+def cmd_mcp(args) -> int:
+    from .mcp import Server
+    Server(_config(args)).serve()
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(prog="rn-route-audit", description=__doc__,
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -214,6 +220,10 @@ def main(argv: list[str] | None = None) -> int:
     f.add_argument("--exit-code", action="store_true",
                    help="exit 1 when anything changed")
     f.set_defaults(func=cmd_diff)
+
+    m = sub.add_parser("mcp", help="run an MCP server over stdio")
+    _common(m)
+    m.set_defaults(func=cmd_mcp)
 
     args = ap.parse_args(argv)
     return args.func(args)
