@@ -17,6 +17,7 @@ from pathlib import Path
 from .config import Config
 from .diff import diff_audits, load as load_audit, to_markdown
 from .lookup import lookup, normalize
+from .page import write as write_page
 from .parser import CONDITIONAL, MOUNTED, UNMOUNTED, UNRESOLVED, audit, enrich, load_i18n
 
 CSV_COLUMNS = ["route", "const", "group", "status", "condition", "screen_title",
@@ -78,6 +79,10 @@ def cmd_audit(args) -> int:
     print(f"written: {out_dir / 'routes.json'}")
     print(f"         {out_dir / 'routes.csv'}")
 
+    if args.html:
+        html = write_page(routes, args.html, title=args.page_title)
+        print(f"page:    {html}")
+
     d = None
     if args.baseline:
         base = Path(args.baseline).expanduser()
@@ -113,6 +118,8 @@ def cmd_audit(args) -> int:
         lines.append(f"renamed={len(d.renamed) if d else 0}")
         if args.comment_file:
             lines.append(f"comment={args.comment_file}")
+        if args.html:
+            lines.append(f"html={args.html}")
         Path(args.summary_file).expanduser().write_text(
             "\n".join(lines) + "\n", encoding="utf-8")
 
@@ -175,6 +182,10 @@ def main(argv: list[str] | None = None) -> int:
     a = sub.add_parser("audit", help="build the route table")
     _common(a)
     a.add_argument("--out", default="rn-route-audit-out", help="output directory")
+    a.add_argument("--html", metavar="FILE",
+                   help="also write a self-contained searchable HTML page")
+    a.add_argument("--page-title", default="Screens",
+                   help="heading shown on the HTML page")
     a.add_argument("--baseline", metavar="FILE",
                    help="a previous routes.json to diff against")
     a.add_argument("--comment-file", metavar="FILE",

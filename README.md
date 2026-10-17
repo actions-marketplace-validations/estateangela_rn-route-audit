@@ -7,6 +7,9 @@ Maps every React Navigation route name to the screen that renders it, and
 goes the other way — from a sentence someone read on screen back to the
 route name.
 
+Produces JSON and CSV for your pipeline, and **one self-contained HTML page**
+for the people on your team who do not run code.
+
 Static analysis only: no simulator, no bundler, no running app, nothing to
 install.
 
@@ -94,12 +97,18 @@ and a React Navigation project — v5, v6 or v7, including the v7 static API.
 | `i18n` | — | Translation JSON paths relative to `app`, newline or comma separated. Needed for titles and lookup. |
 | `alias` | `~/` | Import alias pointing at `src-dir` (e.g. `@/`). |
 | `out-dir` | `rn-route-audit-out` | Where `routes.json` and `routes.csv` are written. |
+| `html-file` | — | Also write a self-contained searchable HTML page here. |
+| `page-title` | `Screens` | Heading shown on that page. |
+| `baseline-json` | — | A previous `routes.json`; enables the PR diff. |
+| `comment-file` | — | Write the diff as markdown for a PR comment. |
 | `fail-on-unmounted` | `false` | Fail the job when a route constant is never mounted. |
 | `fail-on-unresolved` | `false` | Fail the job when a component cannot be traced to a file. |
 
 ### Outputs
 
-`json`, `csv`, `total`, `mounted`, `conditional`, `unresolved`, `unmounted`.
+`json`, `csv`, `html`, `total`, `mounted`, `conditional`, `unresolved`,
+`unmounted`, `changed`, `has-changes`, `added`, `removed`, `renamed`,
+`comment`.
 
 ## Comment on pull requests
 
@@ -132,14 +141,85 @@ The action emits data and stops there; it does not own your integrations.
 |---|---|
 | Keep a record per build | `actions/upload-artifact` with `${{ steps.routes.outputs.csv }}` |
 | Fail a PR that leaves a dead route | `fail-on-unmounted: true` |
+| Tell reviewers what a PR changed | `baseline-json` — see [Comment on pull requests](#comment-on-pull-requests) |
 | Spreadsheet for designers or PMs | import `routes.csv` |
-| Notion, Linear, Confluence… | read `routes.json` and call their API; key rows on `route`, and only write the fields you generate so hand-edited columns survive |
 | Feed your own service | `routes.json` is a flat array of objects |
 
-> **Think twice before publishing the output.** `screen_title` and
+## For people who do not run code
+
+Point `html-file` at a path and the action also writes **one self-contained
+HTML file**. No server, no build step, no network — open it from a download
+and type.
+
+```yaml
+- uses: estateangela/rn-route-audit@v1
+  id: routes
+  with:
+    app: .
+    i18n: locale/en.json
+    html-file: screens.html
+    page-title: Acme screens
+- uses: actions/upload-artifact@v4
+  with:
+    name: screens
+    path: ${{ steps.routes.outputs.html }}
+```
+
+A designer opens it, types words they can read on the frame, and gets the
+route name back. Searching ignores spacing, punctuation and case, so copy
+of the form `You have 3 items left.` still finds `You have {{count}} items
+left.` — which is the case that makes a plain Ctrl+F useless.
+
+### The part that is still manual
+
+**Nothing writes back into Figma.** The loop is:
+
+1. The designer finds the screen on the page and clicks the route name — it
+   copies to the clipboard.
+2. They paste it onto the frame themselves. Most teams put it in the frame
+   name or its description, so it travels with the design.
+3. From then on the frame, the ticket, the analytics event and the code all
+   say `Main/Checkout`, and nobody has to describe which screen they mean.
+
+That paste is deliberate, not a missing feature. Naming frames automatically
+would need a convention every designer already follows, and getting that
+convention agreed is the hard part — a tool cannot do it for you. What this
+removes is the *lookup*, which is the part that was costing minutes every
+time.
+
+### Where to put the page
+
+| Where | Good for | Watch out for |
+|---|---|---|
+| CI artifact, downloaded when needed | Trying it out; small teams | Someone has to remember to download a fresh one |
+| The team's wiki (Notion, Confluence…) as an attachment or synced database | Most teams — designers are already there | A synced database needs a token and a sync step |
+| An access-controlled static host | Teams that want a permanent URL | Access control is not optional; see the warning below |
+
+If you go the synced-database route instead of the HTML file, four things
+are worth getting right the first time:
+
+1. **Key rows on something stable, not the route name.** Route names get
+   renamed; the component path survives. Keying on the name turns a rename
+   into a delete plus an insert, and anything a person attached to that row
+   goes with it.
+2. **Write only the fields you generate.** Then people can annotate rows — a
+   Figma link, an owner, a status — without the next sync wiping it. Enforce
+   that in code, not in a comment.
+3. **Show one "last synced" timestamp for the whole table.** Resist per-row
+   timestamps if the sync is incremental: unchanged rows keep an old date and
+   a perfectly current table looks abandoned.
+4. **Archive removed routes, do not delete them.** A route vanishing is
+   sometimes a parser problem, not a product decision.
+
+Before rolling either out, check the thing the whole idea rests on: search
+for a sentence from `sample_texts` and confirm the right row comes back.
+Some wikis only index the title column, and a lookup table nobody can look
+things up in is worse than none.
+
+> **Think twice before publishing the page.** `screen_title` and
 > `sample_texts` are your product's copy, including unreleased features. A
-> static search site on GitHub Pages is public to everyone — keep the output
-> in artifacts, a private wiki, or an access-controlled host instead.
+> static site on GitHub Pages is public to everyone — keep it in artifacts, a
+> private wiki, or behind access control.
 
 ## Use as a CLI
 
@@ -251,7 +331,7 @@ tests against a fixture app in `tests/fixtures/sample-app`.
 ## Development
 
 ```bash
-python3 -m unittest discover -s tests -t . -v     # 48 tests, no dependencies
+python3 -m unittest discover -s tests -t . -v     # 56 tests, no dependencies
 ```
 
 CI runs the tests on Python 3.9 / 3.11 / 3.13 and then runs the action itself

@@ -34,6 +34,16 @@ inputs:
     description: Where to write routes.json and routes.csv.
     required: false
     default: rn-route-audit-out
+  html-file:
+    description: >-
+      Also write a self-contained, searchable HTML page to this path, for
+      people who do not run code. One file, no server, no network.
+    required: false
+    default: ""
+  page-title:
+    description: Heading shown on the HTML page.
+    required: false
+    default: Screens
   baseline-json:
     description: >-
       A routes.json from an earlier revision. When given, the action also
@@ -97,6 +107,9 @@ outputs:
   comment:
     description: Path to the markdown diff, when `comment-file` was given.
     value: ${{ steps.run.outputs.comment }}
+  html:
+    description: Path to the HTML page, when `html-file` was given.
+    value: ${{ steps.run.outputs.html }}
 
 runs:
   # Composite rather than Docker: the tool is standard-library Python, so
@@ -112,6 +125,8 @@ runs:
         I18N: ${{ inputs.i18n }}
         ALIAS: ${{ inputs.alias }}
         OUT_DIR: ${{ inputs.out-dir }}
+        HTML_FILE: ${{ inputs.html-file }}
+        PAGE_TITLE: ${{ inputs.page-title }}
         BASELINE: ${{ inputs.baseline-json }}
         COMMENT_FILE: ${{ inputs.comment-file }}
         FAIL_UNMOUNTED: ${{ inputs.fail-on-unmounted }}
@@ -129,6 +144,7 @@ runs:
           [ -n "$f" ] && args+=(--i18n "$f")
         done <<< "$(printf '%s' "$I18N" | tr ',' '\n')"
 
+        [ -n "$HTML_FILE" ] && args+=(--html "$HTML_FILE" --page-title "$PAGE_TITLE")
         [ -n "$BASELINE" ] && args+=(--baseline "$BASELINE")
         [ -n "$COMMENT_FILE" ] && args+=(--comment-file "$COMMENT_FILE")
 
