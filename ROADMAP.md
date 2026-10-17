@@ -1,6 +1,6 @@
 # Roadmap
 
-Status as of 2026-10-17. Opinions below are mine (the implementer's); items
+Status as of 2026-10-17, after the v1.0.0 Marketplace listing. Opinions below are mine (the implementer's); items
 marked **skip** are ones I think cost more than they return and should be
 argued for before being picked up.
 
@@ -18,13 +18,18 @@ argued for before being picked up.
       self-test that runs the action against a fixture
 - [x] MIT license, English docs
 
-## Blocked on a decision, not on work
+## Published
 
-- [ ] **Permission to open source.** The parser was written on company time
-      against a private codebase. Nothing company-specific remains in this
-      repo (checked: no names, tickets, credentials, product copy), and the
-      history starts fresh here, but publishing is still the employer's call.
-      Everything below is pointless until this is settled.
+v1.0.0 is live on the GitHub Marketplace as
+[React Navigation Route Audit](https://github.com/marketplace/actions/react-navigation-route-audit).
+Built outside work hours; the repository carries no company information and
+shares 9% of its lines with the internal tool it was inspired by, all of it
+syntax scaffolding.
+
+**There are no users yet.** That is the single most important fact on this
+page: every item below is a guess until someone who did not write it tries
+it. Prefer anything that puts it in front of people over anything that adds
+to it.
 
 ## Stage 1 -- preparing to publish
 
@@ -34,8 +39,8 @@ argued for before being picked up.
 - [x] No company information in the code.
 - [x] Fresh repository, so no history to rewrite.
 - [x] MIT.
-- [ ] Demo: a 30-second GIF of `lookup` is worth more than a sample app --
-      the fixture apps already serve as runnable examples.
+- [x] Demo: `docs/terminal-demo.svg`, hand-authored rather than recorded --
+      4 KB, sharp text, versionable, and a one-word fix instead of a re-record.
 - **skip for now: rewrite in TypeScript.** This is the single largest piece
   of work on the original list and the least visible to users. What it buys:
   npm distribution and a JS Action. What it costs: a full rewrite, a
@@ -47,11 +52,13 @@ argued for before being picked up.
 ## Stage 2 -- Action MVP
 
 - [x] Composite action, token-free (nothing to authenticate for route audit).
-- [ ] **PR comment on route changes.** Highest value per hour on the whole
-      list: comment "3 routes added, 1 renamed, 2 now behind a feature flag"
-      on PRs that touch navigation. Needs the diff logic (exists, in the
-      private repo) ported here. Does *not* need Figma.
-- [ ] `v1` tag and Marketplace listing (after the permission question).
+- [x] **PR comment on route changes.** `diff` subcommand plus
+      `baseline-json` / `comment-file` action inputs, with a ready-to-copy
+      workflow in `examples/pr-comment.yml`. Renames are one change, not a
+      removal plus an addition.
+- [x] `v1.0.0` tag and Marketplace listing.
+- [ ] Set the Marketplace categories -- they are still empty, which is the
+      cheapest discoverability fix available (Utilities / Code quality).
 - **defer: everything Figma.** Worth being blunt: the Figma integration does
   not exist. Route names were put on frames by hand. Building it needs a
   frame-to-route convention that designers actually follow, a Figma token,
@@ -86,6 +93,18 @@ argued for before being picked up.
   *is* product copy. GitHub Pages is public. The risk note on the original
   list is right, and the mitigation (Cloudflare Access) is a lot of moving
   parts for a feature a CSV already covers.
+
+## What to do next, in order
+
+1. **Set the Marketplace categories.** Two minutes, and nobody browsing
+   finds the listing without them.
+2. **Write up how it was built.** The story is better than a feature tour:
+   the first design was invalidated by cloning four repositories, and a
+   fixture test caught 13 wrong rows in a tool that had been running in
+   production all day. This is the cheapest way to get the first users.
+3. **Wait for an issue before building anything else.** We already have one
+   recorded case of a confident assumption being wrong; the only thing that
+   reduces that risk is someone else's project.
 
 ## Stage 5 and portfolio items
 
