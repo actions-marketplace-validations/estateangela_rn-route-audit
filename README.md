@@ -328,6 +328,12 @@ tests against a fixture app in `tests/fixtures/sample-app`.
    Python's `splitlines()` treats it as a newline, but `json.dumps` leaves it
    raw. Output escapes it, so embedding `routes.json` in a page is safe.
 
+## How it was built
+
+[Cloning four real projects invalidated the first design, and writing the
+test fixtures found thirteen wrong rows in the internal tool this grew out
+of.](docs/how-it-was-built.md)
+
 ## Development
 
 ```bash
