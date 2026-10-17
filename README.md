@@ -72,7 +72,7 @@ and a React Navigation project — v5, v6 or v7, including the v7 static API.
 
 ```yaml
 - uses: actions/checkout@v4
-- uses: angelashih-lab/rn-route-audit@v1
+- uses: estateangela/rn-route-audit@v1
   id: routes
   with:
     app: .
@@ -144,7 +144,7 @@ The action emits data and stops there; it does not own your integrations.
 ## Use as a CLI
 
 ```bash
-git clone https://github.com/angelashih-lab/rn-route-audit
+git clone https://github.com/estateangela/rn-route-audit
 cd rn-route-audit
 
 python3 -m rn_route_audit audit \
