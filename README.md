@@ -1,28 +1,72 @@
 # rn-route-audit
 
-Map every React Navigation route name to the screen that renders it — and go
-the other way, from text you see on screen back to the route name.
+**A shared name for every screen, so designers, developers and QA stop
+describing screens to each other.**
 
-Static analysis only: no simulator, no bundler, no running app. Standard
-library Python, so there is nothing to install.
+Maps every React Navigation route name to the screen that renders it, and
+goes the other way — from a sentence someone read on screen back to the
+route name.
+
+Static analysis only: no simulator, no bundler, no running app, nothing to
+install.
 
 <img src="docs/demo.svg" alt="Reverse lookup finds the route behind a sentence; audit runs against a real open-source app" width="780">
 
-## Why
+## The problem it solves
 
-Two questions come up constantly on a React Native codebase and neither has a
-good answer in the editor:
+A designer and a developer look at the same screen and have no shared name
+for it. The designer calls it "the amount step", the developer knows it as
+`Send/StepFour`, analytics reports a third thing, and the bug ticket
+describes it in prose. Every design review, QA report and handoff pays a
+small tax for that, and the tax is invisible because nothing ever fails —
+people just spend a minute working out which screen is being discussed.
 
-* **"Analytics reports `Main/Checkout` — which screen is that?"** Route names
-  live in one file, screens in another, and navigators wire them together
-  three directories away.
-* **"A designer sent me this sentence. Which screen is it on?"** The string is
-  an i18n key in a component, and the component is mounted under a route whose
-  name looks nothing like the file.
+The fix is cheap once the index exists: let each side look the screen up by
+something they already have.
 
-It also surfaces something easy to miss: screens that are only mounted
-*conditionally*. `navigation.navigate()` on those fails when the feature flag
-is off, so they need their own test cases.
+| Who | What they already have | What they get back |
+|---|---|---|
+| Designer | the words on the screen | the route name to write on the frame |
+| Developer | the route name | the component file that renders it |
+| QA | a route name from analytics | whether it is reachable at all, or gated behind a feature flag |
+
+This tool builds that index from the source and keeps it current in CI. What
+you do with it — put the route name on the Figma frame, sync it to a page the
+designers already open, comment it on the pull request — is yours to choose;
+see [What to do with the output](#what-to-do-with-the-output).
+
+**What it is not:** it does not talk to Figma and it does not host anything.
+It reads your source and emits JSON and CSV. Those are the parts that go
+stale on their own; the rest is a five-line script against whatever tool your
+team already uses.
+
+## What the output looks like
+
+One row per route, in `routes.json` and `routes.csv`. From a real run against
+[BlueWallet](https://github.com/BlueWallet/BlueWallet):
+
+```json
+{
+  "route": "About",
+  "status": "mounted",
+  "navigator": "navigation/DetailViewScreensStack.tsx",
+  "component": "About",
+  "file": "screen/settings/About.tsx",
+  "style": "jsx-literal"
+}
+```
+
+With `--i18n` pointed at your translations, each row also carries
+`screen_title`, `sample_texts` and `text_keys` — the on-screen words that make
+the designer-side lookup work.
+
+CSV columns: `route, const, group, status, condition, screen_title,
+sample_texts, component, file, navigator, text_keys, detail`.
+
+## Requirements
+
+Python 3.9 or newer (preinstalled on GitHub runners; no packages to install)
+and a React Navigation project — v5, v6 or v7, including the v7 static API.
 
 ## Use as a GitHub Action
 
