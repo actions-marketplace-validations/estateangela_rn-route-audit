@@ -6,13 +6,7 @@ the other way, from text you see on screen back to the route name.
 Static analysis only: no simulator, no bundler, no running app. Standard
 library Python, so there is nothing to install.
 
-```
-8 routes
-  mounted      4
-  conditional  1
-  unresolved   1
-  unmounted    2
-```
+<img src="docs/demo.svg" alt="Reverse lookup finds the route behind a sentence; audit runs against a real open-source app" width="780">
 
 ## Why
 
@@ -62,6 +56,46 @@ is off, so they need their own test cases.
 ### Outputs
 
 `json`, `csv`, `total`, `mounted`, `conditional`, `unresolved`, `unmounted`.
+
+## Comment on pull requests
+
+The interesting question on a PR is not "what routes exist" but "which
+screens did this change add, remove, rename, or hide behind a flag". Pass a
+previous `routes.json` as `baseline-json` and the action reports the diff:
+
+> ### Navigation changes
+>
+> **Renamed** — anything referring to the old name breaks (analytics, deep links, tests)
+> - `Settings` → `Preferences`
+>
+> **Reachability changed**
+> - `Main/Checkout` — mounted → **conditional** (`flags.newCheckout`)
+
+Renames are reported as one change rather than a removal plus an addition,
+because that is the case nothing else catches: the old name keeps appearing
+in analytics dashboards, deep links and tests, and nothing fails loudly.
+
+A ready-to-copy workflow is in [`examples/pr-comment.yml`](examples/pr-comment.yml).
+It audits the base and head revisions, then posts — or edits — a single
+comment, so a PR with ten pushes does not collect ten comments.
+
+## What to do with the output
+
+The action emits data and stops there; it does not own your integrations.
+`routes.json` and `routes.csv` are both stable, so wiring them up is short:
+
+| Goal | How |
+|---|---|
+| Keep a record per build | `actions/upload-artifact` with `${{ steps.routes.outputs.csv }}` |
+| Fail a PR that leaves a dead route | `fail-on-unmounted: true` |
+| Spreadsheet for designers or PMs | import `routes.csv` |
+| Notion, Linear, Confluence… | read `routes.json` and call their API; key rows on `route`, and only write the fields you generate so hand-edited columns survive |
+| Feed your own service | `routes.json` is a flat array of objects |
+
+> **Think twice before publishing the output.** `screen_title` and
+> `sample_texts` are your product's copy, including unreleased features. A
+> static search site on GitHub Pages is public to everyone — keep the output
+> in artifacts, a private wiki, or an access-controlled host instead.
 
 ## Use as a CLI
 
@@ -173,7 +207,7 @@ tests against a fixture app in `tests/fixtures/sample-app`.
 ## Development
 
 ```bash
-python3 -m unittest discover -s tests -t . -v     # 38 tests, no dependencies
+python3 -m unittest discover -s tests -t . -v     # 48 tests, no dependencies
 ```
 
 CI runs the tests on Python 3.9 / 3.11 / 3.13 and then runs the action itself

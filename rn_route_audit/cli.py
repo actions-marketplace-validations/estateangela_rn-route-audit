@@ -15,6 +15,7 @@ from collections import Counter
 from pathlib import Path
 
 from .config import Config
+from .diff import diff_audits, load as load_audit, to_markdown
 from .lookup import lookup, normalize
 from .parser import CONDITIONAL, MOUNTED, UNMOUNTED, UNRESOLVED, audit, enrich, load_i18n
 
@@ -77,6 +78,24 @@ def cmd_audit(args) -> int:
     print(f"written: {out_dir / 'routes.json'}")
     print(f"         {out_dir / 'routes.csv'}")
 
+    d = None
+    if args.baseline:
+        base = Path(args.baseline).expanduser()
+        if base.is_file():
+            d = diff_audits(load_audit(base), [r.as_dict() for r in routes])
+            print(f"\nvs baseline: {d.changed} change(s) "
+                  f"(added {len(d.added)}, removed {len(d.removed)}, "
+                  f"renamed {len(d.renamed)}, reachability "
+                  f"{len(d.status_changed)})")
+            if args.comment_file:
+                Path(args.comment_file).expanduser().write_text(
+                    to_markdown(d), encoding="utf-8")
+                print(f"comment: {args.comment_file}")
+        else:
+            # A missing baseline is normal on the first run; failing the job
+            # over it would make the action unusable until a baseline exists.
+            print(f"\nbaseline not found, skipping diff: {base}")
+
     if args.summary_file:
         # key=value lines, ready to append to $GITHUB_OUTPUT. Produced here
         # rather than in the action's shell: a nested heredoc inside a YAML
@@ -87,6 +106,13 @@ def cmd_audit(args) -> int:
                  f"total={len(routes)}"]
         lines += [f"{s}={counts.get(s, 0)}"
                   for s in (MOUNTED, CONDITIONAL, UNRESOLVED, UNMOUNTED)]
+        lines.append(f"changed={d.changed if d else 0}")
+        lines.append(f"has-changes={'true' if d and d.changed else 'false'}")
+        lines.append(f"added={len(d.added) if d else 0}")
+        lines.append(f"removed={len(d.removed) if d else 0}")
+        lines.append(f"renamed={len(d.renamed) if d else 0}")
+        if args.comment_file:
+            lines.append(f"comment={args.comment_file}")
         Path(args.summary_file).expanduser().write_text(
             "\n".join(lines) + "\n", encoding="utf-8")
 
@@ -129,6 +155,18 @@ def cmd_lookup(args) -> int:
     return 0
 
 
+def cmd_diff(args) -> int:
+    d = diff_audits(load_audit(args.base), load_audit(args.head))
+    if args.json:
+        print(dump_json(d.as_dict(), indent=2))
+    else:
+        print(to_markdown(d), end="")
+    if args.comment_file:
+        Path(args.comment_file).expanduser().write_text(
+            to_markdown(d), encoding="utf-8")
+    return 1 if (args.exit_code and d.changed) else 0
+
+
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(prog="rn-route-audit", description=__doc__,
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -137,6 +175,10 @@ def main(argv: list[str] | None = None) -> int:
     a = sub.add_parser("audit", help="build the route table")
     _common(a)
     a.add_argument("--out", default="rn-route-audit-out", help="output directory")
+    a.add_argument("--baseline", metavar="FILE",
+                   help="a previous routes.json to diff against")
+    a.add_argument("--comment-file", metavar="FILE",
+                   help="write the diff as markdown (for a PR comment)")
     a.add_argument("--summary-file", metavar="FILE",
                    help="write key=value counts (for $GITHUB_OUTPUT)")
     a.add_argument("--fail-on-unmounted", action="store_true",
@@ -151,6 +193,16 @@ def main(argv: list[str] | None = None) -> int:
     l.add_argument("--limit", type=int, default=20)
     l.add_argument("--json", action="store_true")
     l.set_defaults(func=cmd_lookup)
+
+    f = sub.add_parser("diff", help="compare two audit results")
+    f.add_argument("base", help="routes.json from the base revision")
+    f.add_argument("head", help="routes.json from the new revision")
+    f.add_argument("--json", action="store_true")
+    f.add_argument("--comment-file", metavar="FILE",
+                   help="also write the markdown to this file")
+    f.add_argument("--exit-code", action="store_true",
+                   help="exit 1 when anything changed")
+    f.set_defaults(func=cmd_diff)
 
     args = ap.parse_args(argv)
     return args.func(args)

@@ -36,6 +36,18 @@ inputs:
     description: Where to write routes.json and routes.csv.
     required: false
     default: rn-route-audit-out
+  baseline-json:
+    description: >-
+      A routes.json from an earlier revision. When given, the action also
+      reports what changed and can write a pull request comment.
+    required: false
+    default: ""
+  comment-file:
+    description: >-
+      Where to write the diff as markdown, for posting as a PR comment.
+      Only written when `baseline-json` is given.
+    required: false
+    default: ""
   fail-on-unmounted:
     description: Fail the job when a route constant is never mounted.
     required: false
@@ -67,6 +79,26 @@ outputs:
   unmounted:
     description: Route constants that no screen mounts.
     value: ${{ steps.run.outputs.unmounted }}
+  changed:
+    description: Number of changes against `baseline-json` (0 without one).
+    value: ${{ steps.run.outputs.changed }}
+  has-changes:
+    description: "`true` when the diff against `baseline-json` is non-empty."
+    value: ${{ steps.run.outputs.has-changes }}
+  added:
+    description: Routes present in head but not in the baseline.
+    value: ${{ steps.run.outputs.added }}
+  removed:
+    description: Routes present in the baseline but not in head.
+    value: ${{ steps.run.outputs.removed }}
+  renamed:
+    description: >-
+      Routes whose name changed while still pointing at the same screen.
+      These break analytics and deep links silently.
+    value: ${{ steps.run.outputs.renamed }}
+  comment:
+    description: Path to the markdown diff, when `comment-file` was given.
+    value: ${{ steps.run.outputs.comment }}
 
 runs:
   # Composite rather than Docker: the tool is standard-library Python, so
@@ -82,6 +114,8 @@ runs:
         I18N: ${{ inputs.i18n }}
         ALIAS: ${{ inputs.alias }}
         OUT_DIR: ${{ inputs.out-dir }}
+        BASELINE: ${{ inputs.baseline-json }}
+        COMMENT_FILE: ${{ inputs.comment-file }}
         FAIL_UNMOUNTED: ${{ inputs.fail-on-unmounted }}
         FAIL_UNRESOLVED: ${{ inputs.fail-on-unresolved }}
       run: |
@@ -96,6 +130,9 @@ runs:
         while IFS= read -r f; do
           [ -n "$f" ] && args+=(--i18n "$f")
         done <<< "$(printf '%s' "$I18N" | tr ',' '\n')"
+
+        [ -n "$BASELINE" ] && args+=(--baseline "$BASELINE")
+        [ -n "$COMMENT_FILE" ] && args+=(--comment-file "$COMMENT_FILE")
 
         [ "$FAIL_UNMOUNTED" = "true" ] && args+=(--fail-on-unmounted)
         [ "$FAIL_UNRESOLVED" = "true" ] && args+=(--fail-on-unresolved)

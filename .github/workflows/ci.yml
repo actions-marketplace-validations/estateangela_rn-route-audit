@@ -39,3 +39,33 @@ jobs:
           test "${{ steps.audit.outputs.mounted }}" = "4"
           test "${{ steps.audit.outputs.conditional }}" = "1"
           test "${{ steps.audit.outputs.unmounted }}" = "2"
+          test "${{ steps.audit.outputs.has-changes }}" = "false"
+
+      # Proves the PR-comment path: rename a route, re-run against the first
+      # result as baseline, and expect exactly one rename.
+      - name: Self-test the diff path
+        uses: ./
+        id: diff
+        with:
+          app: tests/fixtures/literal-app
+          router-file: __none__.tsx
+          out-dir: _base_out
+      - name: Rename a route and diff
+        run: |
+          sed -i 's/name="Settings"/name="Preferences"/' \
+            tests/fixtures/literal-app/src/navigation/Root.tsx
+      - uses: ./
+        id: after
+        with:
+          app: tests/fixtures/literal-app
+          router-file: __none__.tsx
+          out-dir: _head_out
+          baseline-json: _base_out/routes.json
+          comment-file: route-changes.md
+      - name: Check the diff
+        run: |
+          cat route-changes.md
+          test "${{ steps.after.outputs.has-changes }}" = "true"
+          test "${{ steps.after.outputs.renamed }}" = "1"
+          test "${{ steps.after.outputs.added }}" = "0"
+          grep -q "Settings. . .Preferences" route-changes.md

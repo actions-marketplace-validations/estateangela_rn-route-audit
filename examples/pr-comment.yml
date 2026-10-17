@@ -1,0 +1,73 @@
+# Comment on pull requests that change navigation.
+#
+# Audits the base revision and the head revision, then posts (or updates) a
+# single comment describing renames, reachability changes, additions and
+# removals. Renames matter most: the old route name keeps appearing in
+# analytics dashboards, deep links and tests, and nothing fails loudly.
+#
+# Copy this into .github/workflows/ in your app's repository.
+name: Route changes
+
+on:
+  pull_request:
+    # Narrow this to the paths that hold your navigators to avoid running on
+    # every PR.
+    paths:
+      - "src/**"
+
+permissions:
+  contents: read
+  pull-requests: write      # needed to post the comment
+
+jobs:
+  routes:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout head
+        uses: actions/checkout@v4
+
+      - name: Checkout base
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.base.sha }}
+          path: _base
+
+      - name: Audit base revision
+        uses: estateangela/rn-route-audit@v1
+        with:
+          app: _base
+          i18n: locale/en.json
+          out-dir: _base_out
+
+      - name: Audit head revision and diff
+        id: routes
+        uses: estateangela/rn-route-audit@v1
+        with:
+          app: .
+          i18n: locale/en.json
+          out-dir: _head_out
+          baseline-json: _base_out/routes.json
+          comment-file: route-changes.md
+
+      - name: Post or update the comment
+        if: steps.routes.outputs.has-changes == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR: ${{ github.event.pull_request.number }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          body=$(cat route-changes.md)
+
+          # Find this workflow's own previous comment by its marker and edit
+          # it, so a PR with ten pushes does not collect ten comments.
+          id=$(gh api "repos/$REPO/issues/$PR/comments" --paginate \
+                 --jq '[.[] | select(.body | contains("<!-- rn-route-audit -->"))][0].id // empty')
+
+          if [ -n "$id" ]; then
+            gh api -X PATCH "repos/$REPO/issues/comments/$id" -f body="$body" >/dev/null
+            echo "updated comment $id"
+          else
+            gh api -X POST "repos/$REPO/issues/$PR/comments" -f body="$body" >/dev/null
+            echo "posted a new comment"
+          fi
